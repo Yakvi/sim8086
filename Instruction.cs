@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace sim8086
+﻿namespace sim8086
 {
     public class Instruction
     {
@@ -99,15 +97,19 @@ namespace sim8086
             };
         }
 
-        public void Print()
+        public string Print()
         {
+            string result = "";
             switch (opCode)
             {
                 case OpCode.mov:
                 {
-                    Console.WriteLine($"{opCode.ToString()} {dest.ToString()}, {source.ToString()}");
+                    result += $"{opCode.ToString()} {dest.ToString()}, {source.ToString()}";
                 } break;
             }
+
+            result += "\n";
+            return result;
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.IO;
 
 namespace sim8086
@@ -40,17 +39,19 @@ namespace sim8086
             return result;
         }
         
-        public void Print()
+        public string Print()
         {
-            Console.WriteLine($"; {filename} disassembly\n");
-            Console.WriteLine("bits 16\n");
+            string result = $"; {filename} disassembly\n\n";
+            result += "bits 16\n\n";
 
             var instruction = GetNextInstruction();
             while (instruction.opCode != Instruction.OpCode.Null) 
             {
-                instruction.Print();
+                result += instruction.Print();
                 instruction = GetNextInstruction();
             }
+
+            return result;
         }
 
         private Instruction GetNextInstruction()

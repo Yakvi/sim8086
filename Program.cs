@@ -16,9 +16,14 @@ namespace sim8086
 
             var code = new MachineCode(filename);
             
-            
+            var asm = code.Print();
+            Console.WriteLine(asm);
 
-            code.Print();
+            using (var sw = new StreamWriter("test.asm"))
+            {
+                // Write the string to the file
+                sw.Write(asm);
+            }
         }
     }
 }
