@@ -1,12 +1,13 @@
 ﻿using System;
 
-namespace decoder8086
+namespace sim8086
 {
-    class Program
+    static class Program
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            Console.WriteLine($"; {args[0]} disassembly");
+            Console.WriteLine($"bits 16");
         }
     }
 }
