@@ -93,7 +93,7 @@ namespace sim8086
             if (mode == Mode.MemorySimple && rm == 0b100) // BP
                 mode = Mode.Memory16;
 
-            sourceReg = InterpretReg(reg);
+            sourceReg = InterpretReg(d ? rm : reg);
             switch (mode)
             {
                 case Mode.MemorySimple:
@@ -107,7 +107,7 @@ namespace sim8086
                 } break;
                 case Mode.Register:
                 {
-                    destReg = InterpretReg(rm);
+                    destReg = InterpretReg(d ? reg : rm);
                     asm = $"{opCode.ToString()} {destReg.ToString()}, {sourceReg.ToString()}";
                 } break;
                 default:
