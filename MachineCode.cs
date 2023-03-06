@@ -38,6 +38,15 @@ namespace sim8086
             SeekForwards();
             return result;
         }
+
+        public short GetNextWord()
+        {
+            var byteLo = CurrentByte;
+            SeekForwards();
+            var byteHi = CurrentByte;
+            SeekForwards();
+            return (short)((byteHi << 8) + byteLo);
+        }
         
         public string Print()
         {

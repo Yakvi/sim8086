@@ -5,8 +5,7 @@
         public static bool GetBit(this byte b, int position)
         {
             if (position < 0 || position > 7) return false;
-            var p = 7 - position;
-            return (b & (1 << p)) != 0;
+            return (b & (1 << position)) != 0;
         }
     }
 }

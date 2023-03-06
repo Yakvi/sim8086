@@ -1,4 +1,6 @@
-﻿namespace sim8086
+﻿using System;
+
+namespace sim8086
 {
     public class Instruction
     {
@@ -36,52 +38,85 @@
             Memory16 = 0b10,
             Register = 0b11
         }
-        
-        public OpCode opCode;
+
+        public readonly OpCode opCode;
         public bool d, w, s, v, z;
-        public RegMem dest = RegMem.None;
-        public RegMem source = RegMem.None;
+        public RegMem destReg = RegMem.None;
+        public RegMem sourceReg = RegMem.None;
+        public string asm;
 
         public Instruction(MachineCode mc)
         {
             var byte1 = mc.GetNextByte();
-            
-            opCode = InterpretOpCode(byte1);
+
+            switch (byte1 >> 4)
+            {
+                case 0b1000:
+                {
+                    if (byte1 >> 2 == 0b100010)
+                    {
+                        opCode = OpCode.mov;
+                        InitMovRegMem(mc, byte1);
+                    }
+                } break;
+                case 0b1011:
+                {
+                    opCode = OpCode.mov;
+                    InitMovImmediate(mc, byte1);
+                } break;
+            }
+
             if (opCode == OpCode.Null) return;
-            
-            d = byte1.GetBit(6);
-            w = byte1.GetBit(7);
-            
-            // TODO(yakvi): This might be wrong depending on opcode
+        }
+
+        private void InitMovImmediate(MachineCode mc, byte byte1)
+        {
+            w = byte1.GetBit(3);
+            var reg = (byte)(byte1 & 0b111);
+            destReg = InterpretReg(reg);
+            int value = w ? mc.GetNextWord() : mc.GetNextByte();
+            asm = $"{opCode.ToString()} {destReg.ToString()}, {value}";
+        }
+
+        private void InitMovRegMem(MachineCode mc, byte byte1)
+        {
+            d = byte1.GetBit(1);
+            w = byte1.GetBit(0);
+
             var byte2 = mc.GetNextByte();
 
             // TOOD(yakvi): Do we need to extract these three? 
             var mode = (Mode)(byte2 >> 6);
-            var reg = (byte)((byte2 & 0b00111000) >> 3);
+            var reg = (byte)((byte2 & 0b111000) >> 3);
             var rm = (byte)(byte2 & 0b111);
 
-            dest = InterpretRegMem(rm);
-            if (mode == Mode.Register)
+            if (mode == Mode.MemorySimple && rm == 0b100) // BP
+                mode = Mode.Memory16;
+
+            sourceReg = InterpretReg(reg);
+            switch (mode)
             {
-                source = InterpretRegMem(reg);
+                case Mode.MemorySimple:
+                {
+                } break;
+                case Mode.Memory8:
+                {
+                } break;
+                case Mode.Memory16:
+                {
+                } break;
+                case Mode.Register:
+                {
+                    destReg = InterpretReg(rm);
+                    asm = $"{opCode.ToString()} {destReg.ToString()}, {sourceReg.ToString()}";
+                } break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
+
         }
 
-        private OpCode InterpretOpCode(byte byte1)
-        {
-            var result = OpCode.Null;
-            switch (byte1 >> 2)
-            {
-                case 0b100010:
-                {
-                    result = OpCode.mov;
-                } break;
-            }
-            
-            return result;
-        }
-        
-        private RegMem InterpretRegMem(byte id)
+        private RegMem InterpretReg(byte id)
         {
             return id switch
             {
@@ -99,17 +134,7 @@
 
         public string Print()
         {
-            string result = "";
-            switch (opCode)
-            {
-                case OpCode.mov:
-                {
-                    result += $"{opCode.ToString()} {dest.ToString()}, {source.ToString()}";
-                } break;
-            }
-
-            result += "\n";
-            return result;
+            return asm + "\n";
         }
     }
 }
