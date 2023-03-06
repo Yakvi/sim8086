@@ -94,6 +94,9 @@ namespace sim8086
                 mode = Mode.Memory16;
 
             sourceReg = InterpretReg(d ? rm : reg);
+            destReg = InterpretReg(d ? reg : rm);
+            var offset = 0;
+
             switch (mode)
             {
                 case Mode.MemorySimple:
@@ -107,7 +110,6 @@ namespace sim8086
                 } break;
                 case Mode.Register:
                 {
-                    destReg = InterpretReg(d ? reg : rm);
                     asm = $"{opCode.ToString()} {destReg.ToString()}, {sourceReg.ToString()}";
                 } break;
                 default:
