@@ -19,10 +19,10 @@ namespace sim8086
             var asm = code.Print();
             Console.WriteLine(asm);
 
-            // using (var sw = new StreamWriter("test.asm"))
-            // {
-            //     sw.Write(asm);
-            // }
+            using (var sw = new StreamWriter("test.asm"))
+            {
+                sw.Write(asm);
+            }
         }
     }
 }

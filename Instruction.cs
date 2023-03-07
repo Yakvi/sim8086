@@ -10,7 +10,7 @@ namespace sim8086
             mov,
         }
 
-        public enum RegMem
+        public enum Register
         {
             None,
             al,
@@ -41,8 +41,9 @@ namespace sim8086
 
         public readonly OpCode opCode;
         public bool d, w, s, v, z;
-        public RegMem destReg = RegMem.None;
-        public RegMem sourceReg = RegMem.None;
+        public Register destReg = Register.None;
+        public Register sourceReg = Register.None;
+        public MemoryAddress memAddress;
         public string asm;
 
         public Instruction(MachineCode mc)
@@ -80,8 +81,8 @@ namespace sim8086
 
         private void InitMovRegMem(MachineCode mc, byte byte1)
         {
-            d = byte1.GetBit(1);
-            w = byte1.GetBit(0);
+            d = byte1.GetBit(1); // 0: REG is source, 1: REG is dest
+            w = byte1.GetBit(0); // 0: byte,          1: word 
 
             var byte2 = mc.GetNextByte();
 
@@ -89,48 +90,52 @@ namespace sim8086
             var mode = (Mode)(byte2 >> 6);
             var reg = (byte)((byte2 & 0b111000) >> 3);
             var rm = (byte)(byte2 & 0b111);
-
-            if (mode == Mode.MemorySimple && rm == 0b100) // BP
-                mode = Mode.Memory16;
-
-            sourceReg = InterpretReg(d ? rm : reg);
-            destReg = InterpretReg(d ? reg : rm);
-            var offset = 0;
-
+            
             switch (mode)
             {
-                case Mode.MemorySimple:
-                {
-                } break;
-                case Mode.Memory8:
-                {
-                } break;
-                case Mode.Memory16:
-                {
-                } break;
                 case Mode.Register:
                 {
-                    asm = $"{opCode.ToString()} {destReg.ToString()}, {sourceReg.ToString()}";
+                    sourceReg = InterpretReg(d ? rm : reg);
+                    destReg = InterpretReg(d ? reg : rm);
+                    asm = $"{opCode} {destReg}, {sourceReg}";
                 } break;
+                case Mode.MemorySimple:
+                case Mode.Memory8:
+                case Mode.Memory16:
+                {
+                    if (d)
+                    {
+                        destReg = InterpretReg(reg);
+                        memAddress.Calculate(mc, mode, rm);
+                        asm = $"{opCode} {destReg}, [{memAddress.printout}]";
+                    }
+                    else
+                    {
+                        sourceReg = InterpretReg(reg);
+                        memAddress.Calculate(mc, mode, rm);
+                        asm = $"{opCode} [{memAddress.printout}], {sourceReg}";
+                    }
+                } break;
+                
                 default:
                     throw new ArgumentOutOfRangeException();
             }
 
         }
 
-        private RegMem InterpretReg(byte id)
+        private Register InterpretReg(byte id)
         {
             return id switch
             {
-                0b000 => w ? RegMem.ax : RegMem.al,
-                0b001 => w ? RegMem.cx : RegMem.cl,
-                0b010 => w ? RegMem.dx : RegMem.dl,
-                0b011 => w ? RegMem.bx : RegMem.bl,
-                0b100 => w ? RegMem.sp : RegMem.ah,
-                0b101 => w ? RegMem.bp : RegMem.ch,
-                0b110 => w ? RegMem.si : RegMem.dh,
-                0b111 => w ? RegMem.di : RegMem.bh,
-                _ => RegMem.None
+                0b000 => w ? Register.ax : Register.al,
+                0b001 => w ? Register.cx : Register.cl,
+                0b010 => w ? Register.dx : Register.dl,
+                0b011 => w ? Register.bx : Register.bl,
+                0b100 => w ? Register.sp : Register.ah,
+                0b101 => w ? Register.bp : Register.ch,
+                0b110 => w ? Register.si : Register.dh,
+                0b111 => w ? Register.di : Register.bh,
+                _ => Register.None
             };
         }
 
