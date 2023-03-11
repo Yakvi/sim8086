@@ -7,7 +7,10 @@ namespace sim8086
         public enum OpCode
         {
             Null,
+            add,
+            cmp,
             mov,
+            sub,
         }
 
         public enum Register
@@ -39,12 +42,13 @@ namespace sim8086
             Register = 0b11
         }
 
-        public readonly OpCode opCode;
+        public OpCode opCode;
         public bool d, w, s, v, z;
         public Register destReg = Register.None;
         public Register sourceReg = Register.None;
         public MemoryAddress memAddress;
         public string asm;
+        public short data;
 
         public Instruction(MachineCode mc)
         {
@@ -52,55 +56,129 @@ namespace sim8086
 
             switch (byte1 >> 4)
             {
-                case 0:
+                case 0b0000: // add
+                case 0b0010: // sub
+                case 0b0011: // cmp
                 {
-                    
-                } break;
-                case 0b1000:
-                {
-                    if (byte1 >> 2 == 0b100010) // Reg/mem to/from register
+                    opCode = (byte)((byte1 & 0b00111000) >> 3) switch
                     {
-                        opCode = OpCode.mov;
-                        DecodeMovRegMem(mc, byte1);
+                        0b000 => OpCode.add,
+                        0b101 => OpCode.sub,
+                        0b111 => OpCode.cmp,
+                        _ => OpCode.Null
+                    };
+                    switch (byte1 >> 2)
+                    {
+                        case 0b000000:
+                        case 0b001010: 
+                        case 0b001110: 
+                            RegMemWithRegistry(mc, byte1);
+                            break;
+                        case 0b000001: 
+                        case 0b001011: 
+                        case 0b001111: 
+                            DecodeAddSubCmpImmediateToAccumulator(mc, byte1);
+                            break;
                     }
                 } break;
-                case 0b1011: // Immediate to register
+                case 0b1000: // mov
+                {
+                    switch (byte1 >> 2)
+                    {
+                        // mov, reg/mem to/from register
+                        case 0b100010:
+                            opCode = OpCode.mov;
+                            RegMemWithRegistry(mc, byte1);
+                            break;
+                        case 0b100000:
+                        {
+                            DecodeAddSubCmpImmediateRegMem(mc, byte1);
+                        }break;
+                    }
+                } break;
+                case 0b1011: // mov, immediate to register
                 {
                     opCode = OpCode.mov;
                     DecodeMovImmediateReg(mc, byte1);
                 } break;
-                case 0b1100: // Immediate to reg/mem
+                case 0b1100: // mov, immediate to reg/mem
                 {
                     opCode = OpCode.mov;
                     DecodeMovImmediateRegMem(mc, byte1);
                 } break;
-                case 0b1010: // Memory to accumulator or vice versa
+                case 0b1010: // mov, memory to accumulator or vice versa
                 {
                     opCode = OpCode.mov;
-                    DecodeMovMemAcc(mc, byte1);
+                    DecodeMovImmediateToAccumulator(mc, byte1);
                 } break;
             }
 
             if (opCode == OpCode.Null) return;
         }
 
-        #region Mov Instruction
-
-        private void DecodeMovMemAcc(MachineCode mc, byte byte1)
+        #region Add Sub Cmp instructions
+        
+        private void DecodeAddSubCmpImmediateRegMem(MachineCode mc, byte byte1)
         {
-            d = byte1.GetBit(1); // 0: memory to accumulator 1: vice versa
-            w = byte1.GetBit(0); // 0: byte,                 1: word 
-            memAddress.CalculateDirect(mc, w);
-            if (d)
+            s = byte1.GetBit(1); // 0: no sign extension, 1: sign extend if w=1
+            w = byte1.GetBit(0); // 0: byte,              1: word 
+
+            var byte2 = mc.GetNextByte();
+            opCode = (byte)((byte2 & 0b00111000) >> 3) switch
             {
-                asm = $"{opCode} {memAddress.printout}, ax";
+                0b000 => OpCode.add,
+                0b101 => OpCode.sub,
+                0b111 => OpCode.cmp,
+                _ => OpCode.Null
+            };
+            var mode = GetModFlag(byte2);
+            var rm = GetRegMemFlag(byte2);
+
+            if (mode == Mode.Register)
+            {
+                data = mc.GetData(s, w);
+               
+                destReg = InterpretReg(rm);
+                
+                asm = $"{opCode} {destReg}, {((w && s) ? (byte)data : data)}";
             }
             else
             {
-                asm = $"{opCode} ax, {memAddress.printout}";
+                memAddress.Calculate(mc, mode, rm);
+                
+                data = mc.GetData(s, w);
+                
+                if (w)
+                {
+                    asm = $"{opCode} word {memAddress.printout}, {data}";
+                }
+                else
+                {
+                    asm = $"{opCode} byte {memAddress.printout}, {data}";
+                }
             }
         }
+        
+        private void DecodeAddSubCmpImmediateToAccumulator(MachineCode mc, byte byte1)
+        {
+            w = byte1.GetBit(0); // 0: byte, 1: word 
+            
+            if (w)
+            {
+                data = mc.GetNextWord();
+            }
+            else
+            {
+                data = (short)(sbyte)mc.GetNextByte();
+            }
+            asm = $"{opCode} {(w ? "ax" : "al")}, {data}";
 
+        }
+
+        #endregion
+
+        #region Mov Instruction
+        
         private void DecodeMovImmediateReg(MachineCode mc, byte byte1)
         {
             d = true;
@@ -123,17 +201,36 @@ namespace sim8086
 
             if (w)
             {
-                var data = mc.GetNextWord();
+                data = mc.GetNextWord();
                 asm = $"{opCode} {memAddress.printout}, word {data}";
             }
             else
             {
-                var data = mc.GetNextByte();
+                data = mc.GetNextByte();
                 asm = $"{opCode} {memAddress.printout}, byte {data}";
             }
         }
+        
+        private void DecodeMovImmediateToAccumulator(MachineCode mc, byte byte1)
+        {
+            d = byte1.GetBit(1); // 0: memory to accumulator 1: vice versa
+            w = byte1.GetBit(0); // 0: byte,                 1: word 
+            memAddress.CalculateDirect(mc, w);
+            if (d)
+            {
+                asm = $"{opCode} {memAddress.printout}, ax";
+            }
+            else
+            {
+                asm = $"{opCode} ax, {memAddress.printout}";
+            }
+        }
 
-        private void DecodeMovRegMem(MachineCode mc, byte byte1)
+        #endregion
+
+        #region Common patterns
+
+        private void RegMemWithRegistry(MachineCode mc, byte byte1)
         {
             d = byte1.GetBit(1); // 0: REG is source, 1: REG is dest
             w = byte1.GetBit(0); // 0: byte,          1: word 
@@ -169,6 +266,8 @@ namespace sim8086
 
         #endregion
 
+        #region Utility
+
         private static Mode GetModFlag(byte byte2) => (Mode)(byte2 >> 6);
         private static byte GetRegFlag(byte byte2) => (byte)((byte2 & 0b111000) >> 3);
         private static byte GetRegMemFlag(byte byte2) => (byte)(byte2 & 0b111);
@@ -193,5 +292,7 @@ namespace sim8086
         {
             return asm + "\n";
         }
+
+        #endregion
     }
 }

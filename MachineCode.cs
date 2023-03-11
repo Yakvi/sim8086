@@ -47,6 +47,24 @@ namespace sim8086
             SeekForwards();
             return (short)((byteHi << 8) + byteLo);
         }
+
+        public short GetData(bool isSigned, bool isWord)
+        {
+            short result = 0;
+            if (isSigned)
+            {
+                if (isWord)
+                {
+                    result = (sbyte)GetNextByte();
+                }
+            }
+            else
+            {
+                result = isWord ? GetNextWord() : GetNextByte();
+            }
+
+            return result;
+        }
         
         public string Print()
         {
