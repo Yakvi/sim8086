@@ -52,28 +52,32 @@ namespace sim8086
 
             switch (byte1 >> 4)
             {
+                case 0:
+                {
+                    
+                } break;
                 case 0b1000:
                 {
                     if (byte1 >> 2 == 0b100010) // Reg/mem to/from register
                     {
                         opCode = OpCode.mov;
-                        InitMovRegMem(mc, byte1);
+                        DecodeMovRegMem(mc, byte1);
                     }
                 } break;
                 case 0b1011: // Immediate to register
                 {
                     opCode = OpCode.mov;
-                    InitMovImmediateReg(mc, byte1);
+                    DecodeMovImmediateReg(mc, byte1);
                 } break;
                 case 0b1100: // Immediate to reg/mem
                 {
                     opCode = OpCode.mov;
-                    InitMovImmediateRegMem(mc, byte1);
+                    DecodeMovImmediateRegMem(mc, byte1);
                 } break;
                 case 0b1010: // Memory to accumulator or vice versa
                 {
                     opCode = OpCode.mov;
-                    InitMovMemAcc(mc, byte1);
+                    DecodeMovMemAcc(mc, byte1);
                 } break;
             }
 
@@ -82,7 +86,7 @@ namespace sim8086
 
         #region Mov Instruction
 
-        private void InitMovMemAcc(MachineCode mc, byte byte1)
+        private void DecodeMovMemAcc(MachineCode mc, byte byte1)
         {
             d = byte1.GetBit(1); // 0: memory to accumulator 1: vice versa
             w = byte1.GetBit(0); // 0: byte,                 1: word 
@@ -97,7 +101,7 @@ namespace sim8086
             }
         }
 
-        private void InitMovImmediateReg(MachineCode mc, byte byte1)
+        private void DecodeMovImmediateReg(MachineCode mc, byte byte1)
         {
             d = true;
             w = byte1.GetBit(3);
@@ -107,7 +111,7 @@ namespace sim8086
             asm = $"{opCode} {destReg}, {value}";
         }
 
-        private void InitMovImmediateRegMem(MachineCode mc, byte byte1)
+        private void DecodeMovImmediateRegMem(MachineCode mc, byte byte1)
         {
             w = byte1.GetBit(0); // 0: byte,          1: word 
             var byte2 = mc.GetNextByte();
@@ -129,7 +133,7 @@ namespace sim8086
             }
         }
 
-        private void InitMovRegMem(MachineCode mc, byte byte1)
+        private void DecodeMovRegMem(MachineCode mc, byte byte1)
         {
             d = byte1.GetBit(1); // 0: REG is source, 1: REG is dest
             w = byte1.GetBit(0); // 0: byte,          1: word 
